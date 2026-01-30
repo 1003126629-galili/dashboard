@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>סטטוס תקלות מחשוב - תיכון גלילי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap');
+        
+        :root {
+            --bg-deep: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent-blue: #0075ff;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+        }
+
+        body {
+            font-family: 'Assistant', sans-serif;
+            background-color: var(--bg-deep);
+            background-image: radial-gradient(circle at top left, #1e293b 0%, #0f172a 100%);
+            color: var(--text-main);
+            touch-action: manipulation;
+            overflow: hidden;
+            height: 100vh;
+            transition: all 0.5s ease;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .logo-container img {
+            max-height: 60px;
+            width: auto;
+            filter: brightness(0) invert(1);
+            transition: all 0.5s ease;
+        }
+
+        .table-container {
+            height: calc(100vh - 200px); 
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-blue) transparent;
+        }
+
+        .table-container::-webkit-scrollbar { width: 4px; }
+        .table-container::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 10px; }
+
+        th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; }
+        tr { border-bottom: 1px solid rgba(255, 255, 255, 0.03); transition: all 0.2s; }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+        .stat-icon {
+            background: linear-gradient(135deg, #0075ff 0%, #00d1ff 100%);
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* TV Mode Adjustments */
+        body.tv-mode { padding: 1.5rem !important; }
+        body.tv-mode .logo-container img { max-height: 80px; }
+        body.tv-mode h1 { font-size: 2.2rem !important; }
+        body.tv-mode .glass-card { padding: 1rem !important; }
+        body.tv-mode .table-container { height: calc(100vh - 240px); }
+        body.tv-mode table { font-size: 1.4rem !important; }
+
+        .kiosk-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .kiosk-btn.active { background: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+    </style>
+</head>
+<body class="p-4 md:p-6 h-screen flex flex-col" id="dashboard-body">
+
+    <header class="flex justify-between items-start mb-4 px-2">
+        <div class="flex flex-col gap-1 max-w-[70%]">
+            <h1 class="text-2xl font-extrabold text-white">סטטוס תקלות מחשוב - תיכון גלילי</h1>
+            <div class="flex flex-wrap items-center gap-4">
+                <span id="last-update" class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">טוען נתונים...</span>
+                <button onclick="toggleTVMode()" id="tv-toggle" class="kiosk-btn scale-90 origin-right">
+                    <span>מצב קיוסק (TV)</span>
+                </button>
+            </div>
+        </div>
+        <div class="logo-container">
+            <img src="https://i.ibb.co/VWVvG2f/image.png" alt="לוגו תיכון גלילי">
+        </div>
+    </header>
+
+    <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="glass-card p-4 flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 mb-1 uppercase">סה"כ דיווחים</p>
+                <p id="total-faults" class="text-2xl font-black text-white leading-none">0</p>
+            </div>
+            <div class="stat-icon">📊</div>
+        </div>
+        <div class="glass-card p-4 flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 mb-1 uppercase">תקלות פתוחות</p>
+                <p id="pending-faults" class="text-2xl font-black text-orange-400 leading-none">0</p>
+            </div>
+            <div class="stat-icon" style="background: #f59e0b">⚠️</div>
+        </div>
+        <div class="glass-card p-4 flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 mb-1 uppercase">בוצעו היום</p>
+                <p id="resolved-today" class="text-2xl font-black text-emerald-400 leading-none">0</p>
+            </div>
+            <div class="stat-icon" style="background: #10b981">✅</div>
+        </div>
+    </div>
+
+    <div class="glass-card flex-grow overflow-hidden flex flex-col">
+        <div class="table-container" id="scroll-container">
+            <table class="w-full text-right border-collapse">
+                <thead class="bg-slate-800/80 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-6 py-3 text-[10px]">חדר</th>
+                        <th class="px-6 py-3 text-[10px]">תיאור התקלה</th>
+                        <th class="px-6 py-3 text-[10px]">סטטוס</th>
+                    </tr>
+                </thead>
+                <tbody id="faults-table-body" class="divide-y divide-white/5"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SHEET_ID = '1TKQsx81K3ApFB5uNzyFTHJ38A3-AAfZ60W9erw-U-yQ';
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+        
+        let isTVMode = false;
+        let scrollInterval;
+        let scrollDirection = 1;
+
+        function toggleTVMode() {
+            isTVMode = !isTVMode;
+            document.getElementById('dashboard-body').classList.toggle('tv-mode');
+            const btn = document.getElementById('tv-toggle');
+            btn.classList.toggle('active');
+            btn.innerText = isTVMode ? 'יציאה ממצב TV' : 'מצב קיוסק (TV)';
+            if(isTVMode) startAutoScroll(); else stopAutoScroll();
+        }
+
+        function startAutoScroll() {
+            const container = document.getElementById('scroll-container');
+            scrollInterval = setInterval(() => {
+                container.scrollTop += scrollDirection;
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight) scrollDirection = -1;
+                else if (container.scrollTop <= 0) scrollDirection = 1;
+            }, 50);
+        }
+
+        function stopAutoScroll() { clearInterval(scrollInterval); }
+
+        async function fetchSheetData() {
+            try {
+                const response = await fetch(CSV_URL);
+                const data = await response.text();
+                const rows = data.split('\n').map(r => r.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || []);
+                
+                const tableBody = document.getElementById('faults-table-body');
+                tableBody.innerHTML = '';
+                let total = 0, pending = 0, resolved = 0;
+
+                rows.slice(1).forEach(row => {
+                    const room = (row[1] || '').replace(/"/g, '').trim();
+                    const fault = (row[2] || '').replace(/"/g, '').trim();
+                    const status = (row[4] || '').replace(/"/g, '').trim();
+                    if (!room) return;
+                    total++;
+                    if (status === 'בוצע') resolved++;
+                    else {
+                        pending++;
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td class="px-6 py-4 font-bold">${room}</td><td class="px-6 py-4 text-slate-300">${fault}</td><td class="px-6 py-4">${status}</td>`;
+                        tableBody.appendChild(tr);
+                    }
+                });
+                document.getElementById('total-faults').innerText = total;
+                document.getElementById('pending-faults').innerText = pending;
+                document.getElementById('resolved-today').innerText = resolved;
+                document.getElementById('last-update').innerText = `עודכן: ${new Date().toLocaleTimeString('he-IL')}`;
+            } catch (e) { console.error(e); }
+        }
+
+        fetchSheetData();
+        setInterval(fetchSheetData, 60000);
+    </script>
+</body>
+</html>
