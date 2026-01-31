@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>סטטוס תקלות מחשוב - תיכון גלילי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Orbitron:wght@400;700&display=swap');
+        
+        :root {
+            --bg-deep: #0f172a;
+            --accent-blue: #3b82f6;
+            --text-main: #ffffff;
+            --led-glow: #60a5fa;
+        }
+
+        body {
+            font-family: 'Assistant', sans-serif;
+            background-color: var(--bg-deep);
+            background-image: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Header Style */
+        header {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.25rem 2.5rem; /* Increased padding */
+        }
+
+        .update-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 16px; /* Increased padding */
+            border-radius: 20px;
+            border: 1px solid rgba(96, 165, 250, 0.2);
+        }
+
+        .update-label {
+            font-size: 0.85rem; /* Slightly larger */
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 400;
+        }
+
+        #last-update {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--led-glow);
+            font-weight: 700;
+            font-size: 1.1rem; /* Increased from 0.9rem */
+            letter-spacing: 1px;
+        }
+
+        /* Summary Card */
+        .summary-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.2));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 14px;
+            padding: 10px 20px; /* Increased padding */
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .summary-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem; /* Increased from 1.8rem */
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .summary-label {
+            font-size: 1rem; /* Increased from 0.85rem */
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.1;
+        }
+
+        /* Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            height: calc(100vh - 120px); /* Adjusted for larger header */
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        
+        @media (max-width: 768px) {
+            .cards-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+        }
+
+        .cards-grid::-webkit-scrollbar { display: none; }
+
+        .fault-card {
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            min-height: 140px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-red { background: rgba(239, 68, 68, 0.3); border-color: rgba(239, 68, 68, 0.5); }
+        .card-green { background: rgba(16, 185, 129, 0.3); border-color: rgba(16, 185, 129, 0.5); }
+        .card-orange { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.5); }
+        .card-blue { background: rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.5); }
+
+        .status-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .staff-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            border-right: 2px solid rgba(255, 255, 255, 0.15); /* Slightly thicker border */
+            padding-right: 1.75rem;
+            margin-right: 1.75rem;
+        }
+
+        .kiosk-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .kiosk-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .kiosk-btn.active { background: #ef4444; color: white; border-color: transparent; }
+
+        /* TV Mode Adjustments */
+        body.tv-mode header { padding: 2rem 4rem; }
+        
+        body.tv-mode .cards-grid { 
+            grid-template-columns: repeat(3, 1fr); 
+            padding: 2rem 3rem; 
+            height: calc(100vh - 160px); 
+            gap: 1.5rem;
+        }
+        
+        body.tv-mode .summary-number { font-size: 3rem; }
+        body.tv-mode .fault-card { 
+            min-height: 160px; 
+            padding: 1.5rem; 
+        }
+        
+        body.tv-mode .fault-card .text-xl { font-size: 1.75rem; }
+        body.tv-mode .fault-card .text-sm { font-size: 1.1rem; line-height: 1.4; }
+    </style>
+</head>
+<body id="dashboard-body">
+
+    <header class="flex justify-between items-center">
+        <div class="flex items-center gap-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white mb-2">תקלות מחשוב - גלילי</h1>
+                <div class="flex items-center gap-4">
+                    <div class="update-badge">
+                        <span class="update-label">עודכן:</span>
+                        <span id="last-update">--:--:--</span>
+                    </div>
+                    <button onclick="toggleTVMode()" id="tv-toggle" class="kiosk-btn font-bold">מצב קיוסק</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center">
+            <div class="summary-card">
+                <span class="summary-number" id="total-faults">0</span>
+                <div class="summary-label">תקלות<br>פתוחות</div>
+            </div>
+
+            <div class="staff-logo hidden md:flex">
+                <span class="text-lg font-extrabold text-white">צוות תקשוב</span>
+                <span class="text-[11px] text-white/50 tracking-[0.15em] font-semibold uppercase">Galili Tech Team</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="cards-container" class="cards-grid">
+        <!-- Cards will be generated here -->
+    </div>
+
+    <script>
+        const SHEET_ID = '1TKQsx81K3ApFB5uNzyFTHJ38A3-AAfZ60W9erw-U-yQ';
+        const GID = '2101576785'; 
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+        
+        let isTVMode = false;
+        let scrollInterval;
+        let scrollDirection = 1;
+
+        async function toggleTVMode() {
+            isTVMode = !isTVMode;
+            const body = document.getElementById('dashboard-body');
+            const btn = document.getElementById('tv-toggle');
+            
+            body.classList.toggle('tv-mode');
+            btn.classList.toggle('active');
+            btn.innerText = isTVMode ? 'יציאה' : 'מצב קיוסק';
+            
+            if (isTVMode) {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen().catch(() => {});
+                }
+                startAutoScroll();
+            } else {
+                if (document.fullscreenElement) {
+                    await document.exitFullscreen().catch(() => {});
+                }
+                stopAutoScroll();
+            }
+        }
+
+        function startAutoScroll() {
+            const container = document.getElementById('cards-container');
+            if (scrollInterval) clearInterval(scrollInterval);
+            scrollInterval = setInterval(() => {
+                if (container.scrollHeight <= container.clientHeight) return;
+                container.scrollTop += scrollDirection;
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
+                    clearInterval(scrollInterval);
+                    setTimeout(() => { scrollDirection = -1; startAutoScroll(); }, 3000);
+                } else if (container.scrollTop <= 0) {
+                    clearInterval(scrollInterval);
+                    setTimeout(() => { scrollDirection = 1; startAutoScroll(); }, 3000);
+                }
+            }, 40);
+        }
+
+        function stopAutoScroll() { clearInterval(scrollInterval); }
+
+        async function fetchSheetData() {
+            try {
+                const response = await fetch(`${CSV_URL}&t=${new Date().getTime()}`);
+                const csvText = await response.text();
+                
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const rows = results.data;
+                        const container = document.getElementById('cards-container');
+                        container.innerHTML = '';
+                        let pendingCount = 0;
+
+                        rows.slice(1).forEach(row => {
+                            const room = (row[1] || '').trim();
+                            const fault = (row[2] || '').trim();
+                            const status = (row[4] || '').trim();
+                            
+                            if (!room || status === 'בוצע') return;
+                            pendingCount++;
+                            
+                            let colorClass = 'card-blue'; 
+                            if (status === 'תוקן') colorClass = 'card-green';
+                            else if (status === 'בטיפול טכנאי' || status === 'בטיפול') colorClass = 'card-red';
+                            else if (status === 'בבדיקה' || status === 'ממתין') colorClass = 'card-orange';
+
+                            const card = document.createElement('div');
+                            card.className = `fault-card ${colorClass}`;
+                            card.innerHTML = `
+                                <div>
+                                    <div class="text-xl font-black text-white mb-1">חדר ${room}</div>
+                                    <div class="text-sm text-white font-medium leading-snug line-clamp-3">${fault}</div>
+                                </div>
+                                <div class="flex justify-start">
+                                    <span class="status-badge">${status || 'חדש'}</span>
+                                </div>
+                            `;
+                            container.appendChild(card);
+                        });
+
+                        document.getElementById('total-faults').innerText = pendingCount;
+                        document.getElementById('last-update').innerText = new Date().toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                        
+                        if (pendingCount === 0) {
+                            container.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 opacity-30"><span class="text-5xl mb-2">✅</span><span class="text-xl font-bold">כל התקלות טופלו!</span></div>';
+                        }
+                    }
+                });
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        window.onload = fetchSheetData;
+        setInterval(fetchSheetData, 60000);
+    </script>
+</body>
+</html>
