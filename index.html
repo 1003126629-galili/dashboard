@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>סטטוס תקלות מחשוב - תיכון גלילי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Orbitron:wght@400;700&family=Alef:wght@400;700&display=swap');
+        
+        :root {
+            --bg-deep: #0f172a;
+            --accent-blue: #3b82f6;
+            --text-main: #ffffff;
+            --led-glow: #60a5fa;
+        }
+
+        body {
+            font-family: 'Assistant', sans-serif;
+            background-color: var(--bg-deep);
+            background-image: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Header Style */
+        header {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr; 
+            align-items: center;
+        }
+
+        .corner-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .update-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(96, 165, 250, 0.2);
+        }
+
+        .update-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 400;
+        }
+
+        #last-update {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--led-glow);
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .quote-container {
+            padding: 0 20px;
+            text-align: center;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        #daily-quote {
+            font-family: 'Alef', sans-serif;
+            font-style: italic;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.4;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        #quote-author {
+            font-size: 0.75rem;
+            color: var(--accent-blue);
+            font-weight: 700;
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.2));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 14px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .summary-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.1;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            height: calc(100vh - 120px);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        
+        .fault-card {
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            min-height: 140px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-red { background: rgba(239, 68, 68, 0.3); border-color: rgba(239, 68, 68, 0.5); }
+        .card-green { background: rgba(16, 185, 129, 0.3); border-color: rgba(16, 185, 129, 0.5); }
+        .card-orange { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.5); }
+        .card-blue { background: rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.5); }
+
+        .status-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .staff-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            border-right: 2px solid rgba(255, 255, 255, 0.15);
+            padding-right: 1.5rem;
+            margin-right: 1.5rem;
+        }
+
+        .kiosk-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        body.tv-mode header { padding: 1.5rem 3rem; }
+        body.tv-mode .quote-container { transform: scale(1.2); }
+    </style>
+</head>
+<body id="dashboard-body">
+
+    <header>
+        <div class="flex items-center gap-6">
+            <div>
+                <div class="corner-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span>צוות תקשוב גלילי</span>
+                </div>
+                <h1 class="text-2xl font-extrabold text-white mb-2 leading-none">תקלות מחשוב - גלילי</h1>
+                <div class="flex items-center gap-3">
+                    <div class="update-badge">
+                        <span class="update-label">עדכון:</span>
+                        <span id="last-update">--:--:--</span>
+                    </div>
+                    <button onclick="toggleTVMode()" id="tv-toggle" class="kiosk-btn font-bold">מצב קיוסק</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="quote-container">
+            <div id="daily-quote">"הטכנולוגיה הטובה ביותר היא זו שנראית כמו קסם."</div>
+            <div id="quote-author">ארתור סי. קלארק</div>
+        </div>
+
+        <div class="flex items-center justify-end">
+            <div class="summary-card">
+                <span class="summary-number" id="total-faults">0</span>
+                <div class="summary-label">תקלות<br>פתוחות</div>
+            </div>
+
+            <div class="staff-logo hidden lg:flex">
+                <span class="text-lg font-extrabold text-white">צוות תקשוב</span>
+                <span class="text-[10px] text-white/50 tracking-widest font-semibold uppercase">Galili Tech Team</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="cards-container" class="cards-grid"></div>
+
+    <script>
+        const SHEET_ID = '1TKQsx81K3ApFB5uNzyFTHJ38A3-AAfZ60W9erw-U-yQ';
+        const GID = '2101576785'; 
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+        
+        const QUOTES = [
+            { text: "הטכנולוגיה הטובה ביותר היא זו שנראית כמו קסם.", author: "ארתור סי. קלארק" },
+            { text: "מחשב הוא האופניים של המוח.", author: "סטיב ג'ובס" },
+            { text: "הדרך הטובה ביותר לחזות את העתיד היא להמציא אותו.", author: "אלן קיי" },
+            { text: "חומרה היא החלק שאתה יכול לבעוט בו; תוכנה היא החלק שאתה יכול רק לקלל.", author: "לא ידוע" },
+            { text: "כל טכנולוגיה מתקדמת מספיק אינה ניתנת להבחנה מקסם.", author: "ארתור סי. קלארק" },
+            { text: "הדבר היחיד שקבוע בחיים הוא השינוי.", author: "הרקליטוס" },
+            { text: "ידע הוא כוח.", author: "פרנסיס בייקון" },
+            { text: "אל תנסה להיות מושלם, נסה להיות טוב יותר ממה שהיית אתמול.", author: "לא ידוע" },
+            { text: "איכות היא לא מעשה, היא הרגל.", author: "אריסטו" },
+            { text: "הצלחה היא היכולת לעבור מכישלון לכישלון בלי לאבד את ההתלהבות.", author: "וינסטון צ'רצ'יל" }
+        ];
+
+        let isTVMode = false;
+        let scrollInterval;
+        let scrollDirection = 1;
+
+        function updateQuote() {
+            const lastQuoteStr = localStorage.getItem('dashboard_quote');
+            const now = new Date().getTime();
+            const fourHours = 4 * 60 * 60 * 1000;
+
+            let quote;
+            if (lastQuoteStr) {
+                const saved = JSON.parse(lastQuoteStr);
+                if (now - saved.timestamp < fourHours) {
+                    quote = saved.quote;
+                }
+            }
+
+            if (!quote) {
+                quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+                localStorage.setItem('dashboard_quote', JSON.stringify({
+                    quote: quote,
+                    timestamp: now
+                }));
+            }
+
+            document.getElementById('daily-quote').innerText = `"${quote.text}"`;
+            document.getElementById('quote-author').innerText = quote.author;
+        }
+
+        async function toggleTVMode() {
+            isTVMode = !isTVMode;
+            const body = document.getElementById('dashboard-body');
+            const btn = document.getElementById('tv-toggle');
+            body.classList.toggle('tv-mode');
+            btn.innerText = isTVMode ? 'יציאה' : 'מצב קיוסק';
+            
+            if (isTVMode) {
+                if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen().catch(() => {});
+                startAutoScroll();
+            } else {
+                if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+                stopAutoScroll();
+            }
+        }
+
+        function startAutoScroll() {
+            const container = document.getElementById('cards-container');
+            if (scrollInterval) clearInterval(scrollInterval);
+            scrollInterval = setInterval(() => {
+                if (container.scrollHeight <= container.clientHeight) return;
+                container.scrollTop += scrollDirection;
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
+                    clearInterval(scrollInterval);
+                    setTimeout(() => { scrollDirection = -1; startAutoScroll(); }, 3000);
+                } else if (container.scrollTop <= 0) {
+                    clearInterval(scrollInterval);
+                    setTimeout(() => { scrollDirection = 1; startAutoScroll(); }, 3000);
+                }
+            }, 40);
+        }
+
+        function stopAutoScroll() { clearInterval(scrollInterval); }
+
+        async function fetchSheetData() {
+            try {
+                const response = await fetch(`${CSV_URL}&t=${new Date().getTime()}`);
+                const csvText = await response.text();
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const rows = results.data;
+                        const container = document.getElementById('cards-container');
+                        container.innerHTML = '';
+                        let openCount = 0;
+
+                        rows.slice(1).forEach(row => {
+                            const room = (row[1] || '').trim();
+                            const fault = (row[2] || '').trim();
+                            const status = (row[4] || '').trim();
+                            
+                            // Hide "בוצע" entirely
+                            if (!room || status === 'בוצע') return;
+                            
+                            // Define visual style
+                            let colorClass = 'card-blue'; 
+                            if (status === 'תוקן') {
+                                colorClass = 'card-green';
+                                // Note: We do NOT increment openCount for "תוקן"
+                            } else {
+                                // For all other statuses (except 'בוצע' and 'תוקן'), we count as open
+                                openCount++;
+                                if (status === 'בטיפול טכנאי' || status === 'בטיפול') colorClass = 'card-red';
+                                else if (status === 'בבדיקה' || status === 'ממתין') colorClass = 'card-orange';
+                            }
+
+                            const card = document.createElement('div');
+                            card.className = `fault-card ${colorClass}`;
+                            card.innerHTML = `
+                                <div>
+                                    <div class="text-xl font-black text-white mb-1">חדר ${room}</div>
+                                    <div class="text-sm text-white font-medium leading-snug line-clamp-3">${fault}</div>
+                                </div>
+                                <div class="flex justify-start">
+                                    <span class="status-badge">${status || 'חדש'}</span>
+                                </div>
+                            `;
+                            container.appendChild(card);
+                        });
+
+                        document.getElementById('total-faults').innerText = openCount;
+                        document.getElementById('last-update').innerText = new Date().toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    }
+                });
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        window.onload = () => {
+            fetchSheetData();
+            updateQuote();
+        };
+        setInterval(fetchSheetData, 60000);
+    </script>
+</body>
+</html>
